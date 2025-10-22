@@ -243,6 +243,8 @@ func changeRegistration(client *http.Client, baseURL, token string, contestID in
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
+	log.Printf("%s %s", req.Method, req.URL.String())
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("sending request: %w", err)
