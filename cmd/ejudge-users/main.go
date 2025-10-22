@@ -278,17 +278,19 @@ func changeRegistration(client *http.Client, baseURL, token string, contestID in
 	}
 
 	if !reply.OK {
+		message := serverErrorMessage(body, reply)
 		if reply.Error != nil {
-			return fmt.Errorf("server error: %s (code %d, symbol %s, log %s)", reply.Error.Message, reply.Error.Num, reply.Error.Symbol, reply.Error.LogID)
+			return fmt.Errorf("server error: %s (code %d, symbol %s, log %s)", message, reply.Error.Num, reply.Error.Symbol, reply.Error.LogID)
 		}
-		return errors.New("registration change was not acknowledged")
+		return fmt.Errorf("registration change was not acknowledged: %s", message)
 	}
 
 	if len(reply.Result) > 0 {
 		var acknowledged bool
 		if err := json.Unmarshal(reply.Result, &acknowledged); err == nil {
 			if !acknowledged {
-				return errors.New("registration change was not acknowledged")
+				message := serverErrorMessage(body, reply)
+				return fmt.Errorf("registration change was not acknowledged: %s", message)
 			}
 		}
 	}
@@ -373,4 +375,48 @@ func normalizeAuthorizationHeaderValue(raw string) string {
 	}
 
 	return trimmed
+}
+
+func serverErrorMessage(body []byte, reply changeRegistrationReply) string {
+	if reply.Error != nil {
+		if message := strings.TrimSpace(reply.Error.Message); message != "" {
+			return message
+		}
+	}
+
+	if len(reply.Result) > 0 {
+		if message := extractMessageFromResult(reply.Result); message != "" {
+			return message
+		}
+	}
+
+	if trimmed := strings.TrimSpace(string(body)); trimmed != "" {
+		return trimmed
+	}
+
+	return "unknown server error"
+}
+
+func extractMessageFromResult(raw json.RawMessage) string {
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		if trimmed := strings.TrimSpace(text); trimmed != "" {
+			return trimmed
+		}
+	}
+
+	var object map[string]any
+	if err := json.Unmarshal(raw, &object); err == nil {
+		for _, key := range []string{"message", "detail", "error"} {
+			if value, ok := object[key]; ok {
+				if str, ok := value.(string); ok {
+					if trimmed := strings.TrimSpace(str); trimmed != "" {
+						return trimmed
+					}
+				}
+			}
+		}
+	}
+
+	return ""
 }

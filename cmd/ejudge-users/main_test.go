@@ -1,6 +1,13 @@
 package main
 
-import "testing"
+import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+)
 
 func TestNormalizeAuthorizationHeaderValue(t *testing.T) {
 	tests := []struct {
@@ -23,5 +30,47 @@ func TestNormalizeAuthorizationHeaderValue(t *testing.T) {
 				t.Fatalf("normalizeAuthorizationHeaderValue(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestChangeRegistrationIncludesServerErrorMessage(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc(changeRegistrationPath, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"ok": false, "error": {"message": "User is blocked", "num": 13, "symbol": "USER_BLOCKED", "log_id": "log-1"}}`)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := &http.Client{Timeout: time.Second}
+
+	err := changeRegistration(client, server.URL, "token", 1, userSpec{Login: "user", Name: "User Name"}, actionRegister, time.Second)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "User is blocked") {
+		t.Fatalf("error %q does not contain server message", err)
+	}
+}
+
+func TestChangeRegistrationIncludesResultMessageWhenErrorMissing(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc(changeRegistrationPath, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"ok": false, "result": "contest is closed"}`)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := &http.Client{Timeout: time.Second}
+
+	err := changeRegistration(client, server.URL, "token", 1, userSpec{Login: "user", Name: "User Name"}, actionRegister, time.Second)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "contest is closed") {
+		t.Fatalf("error %q does not contain server message", err)
 	}
 }
