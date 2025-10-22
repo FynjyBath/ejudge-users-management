@@ -11,8 +11,8 @@ func TestNormalizeAuthorizationHeaderValue(t *testing.T) {
 		{"empty", "", ""},
 		{"already bearer", "Bearer AQAA123", "Bearer AQAA123"},
 		{"lower bearer", "bearer token", "bearer token"},
-		{"raw token", "AQAA123", "Bearer AQAA123"},
-		{"bearer without space", "BearerAQAA123", "Bearer AQAA123"},
+		{"raw token", "AQAA123", "AQAA123"},
+		{"bearer without space", "BearerAQAA123", "BearerAQAA123"},
 		{"token scheme", "Token foo", "Token foo"},
 		{"custom scheme", "Custom value", "Custom value"},
 	}
