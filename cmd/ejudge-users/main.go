@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -260,9 +259,18 @@ func changeRegistration(client *http.Client, baseURL, token string, contestID in
 	}
 
 	contentType := resp.Header.Get("Content-Type")
-	reply, err := decodeChangeRegistrationResponse(body, contentType, resp.Status)
-	if err != nil {
-		return err
+	if contentType != "" && !isJSONContentType(contentType) {
+		const maxPreview = 200
+		preview := string(body)
+		if len(preview) > maxPreview {
+			preview = preview[:maxPreview] + "..."
+		}
+		return fmt.Errorf("unexpected response content type %q (status %s): %s", contentType, resp.Status, preview)
+	}
+
+	var reply changeRegistrationReply
+	if err := json.Unmarshal(body, &reply); err != nil {
+		return fmt.Errorf("decoding response: %w", err)
 	}
 
 	if !reply.OK || !reply.Result {
@@ -343,115 +351,4 @@ func loadConfig(path string) (config, error) {
 	}
 
 	return cfg, nil
-}
-
-func decodeChangeRegistrationResponse(body []byte, contentType, status string) (changeRegistrationReply, error) {
-	var reply changeRegistrationReply
-	if err := json.Unmarshal(body, &reply); err == nil {
-		return reply, nil
-	} else {
-		decodeErr := err
-
-		if embedded, ok := extractJSONFromText(body); ok {
-			if err := json.Unmarshal(embedded, &reply); err == nil {
-				return reply, nil
-			}
-			return changeRegistrationReply{}, fmt.Errorf("decoding embedded JSON response: %w", err)
-		}
-
-		if contentType == "" || isJSONContentType(contentType) {
-			return changeRegistrationReply{}, fmt.Errorf("decoding response: %w", decodeErr)
-		}
-
-		const maxPreview = 200
-		preview := string(body)
-		if len(preview) > maxPreview {
-			preview = preview[:maxPreview] + "..."
-		}
-		return changeRegistrationReply{}, fmt.Errorf("unexpected response content type %q (status %s): %s", contentType, status, preview)
-	}
-}
-
-func extractJSONFromText(data []byte) ([]byte, bool) {
-	for start := 0; start < len(data); {
-		idxObj := bytes.IndexByte(data[start:], '{')
-		idxArr := bytes.IndexByte(data[start:], '[')
-
-		idx := -1
-		switch {
-		case idxObj == -1:
-			idx = idxArr
-		case idxArr == -1:
-			idx = idxObj
-		case idxObj < idxArr:
-			idx = idxObj
-		default:
-			idx = idxArr
-		}
-
-		if idx == -1 {
-			return nil, false
-		}
-
-		start += idx
-		if fragment, length, ok := readJSONObject(data[start:]); ok {
-			candidate := fragment[:length]
-			if json.Valid(candidate) {
-				return candidate, true
-			}
-		}
-
-		start++
-	}
-
-	return nil, false
-}
-
-func readJSONObject(data []byte) ([]byte, int, bool) {
-	if len(data) == 0 {
-		return nil, 0, false
-	}
-
-	opener := data[0]
-	if opener != '{' && opener != '[' {
-		return nil, 0, false
-	}
-
-	depth := 0
-	inString := false
-	escaped := false
-
-	for i := 0; i < len(data); i++ {
-		b := data[i]
-		if inString {
-			if escaped {
-				escaped = false
-				continue
-			}
-			switch b {
-			case '\\':
-				escaped = true
-			case '"':
-				inString = false
-			}
-			continue
-		}
-
-		switch b {
-		case '"':
-			inString = true
-		case '{', '[':
-			depth++
-		case '}', ']':
-			depth--
-			if depth == 0 {
-				return data[:i+1], i + 1, true
-			}
-			if depth < 0 {
-				return nil, 0, false
-			}
-		}
-	}
-
-	return nil, 0, false
 }
