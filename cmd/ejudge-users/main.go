@@ -242,6 +242,7 @@ func changeRegistration(client *http.Client, baseURL, token string, contestID in
 	req.Header.Set("Authorization", token)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 
 	log.Printf("%s %s", req.Method, req.URL.String())
 
