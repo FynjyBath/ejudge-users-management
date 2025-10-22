@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -73,4 +74,40 @@ func TestChangeRegistrationIncludesResultMessageWhenErrorMissing(t *testing.T) {
 	if !strings.Contains(err.Error(), "contest is closed") {
 		t.Fatalf("error %q does not contain server message", err)
 	}
+}
+
+func TestParseUsersSplitsByNewline(t *testing.T) {
+	raw := "123:Alice\r\nuser2:User Two\n"
+
+	users, err := parseUsers(raw)
+	if err != nil {
+		t.Fatalf("parseUsers returned error: %v", err)
+	}
+
+	want := []userSpec{
+		{ID: intPtr(123), Login: "123", Name: "Alice"},
+		{Login: "user2", Name: "User Two"},
+	}
+
+	if !reflect.DeepEqual(users, want) {
+		t.Fatalf("parseUsers(%q) = %#v, want %#v", raw, users, want)
+	}
+}
+
+func TestParseContestIDsSplitsByTab(t *testing.T) {
+	raw := "101\t202\t 303\t"
+
+	ids, err := parseContestIDs(raw)
+	if err != nil {
+		t.Fatalf("parseContestIDs returned error: %v", err)
+	}
+
+	want := []int{101, 202, 303}
+	if !reflect.DeepEqual(ids, want) {
+		t.Fatalf("parseContestIDs(%q) = %#v, want %#v", raw, ids, want)
+	}
+}
+
+func intPtr(v int) *int {
+	return &v
 }
