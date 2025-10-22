@@ -34,10 +34,11 @@ type userSpec struct {
 }
 
 type changeRegistrationReply struct {
-	OK     bool        `json:"ok"`
-	Result bool        `json:"result"`
-	Error  *replyError `json:"error"`
-	Action string      `json:"action"`
+	OK         bool            `json:"ok"`
+	Result     json.RawMessage `json:"result"`
+	Error      *replyError     `json:"error"`
+	Action     string          `json:"action"`
+	ServerTime json.RawMessage `json:"server_time"`
 }
 
 type replyError struct {
@@ -276,11 +277,20 @@ func changeRegistration(client *http.Client, baseURL, token string, contestID in
 		return fmt.Errorf("decoding response: %w", err)
 	}
 
-	if !reply.OK || !reply.Result {
+	if !reply.OK {
 		if reply.Error != nil {
 			return fmt.Errorf("server error: %s (code %d, symbol %s, log %s)", reply.Error.Message, reply.Error.Num, reply.Error.Symbol, reply.Error.LogID)
 		}
 		return errors.New("registration change was not acknowledged")
+	}
+
+	if len(reply.Result) > 0 {
+		var acknowledged bool
+		if err := json.Unmarshal(reply.Result, &acknowledged); err == nil {
+			if !acknowledged {
+				return errors.New("registration change was not acknowledged")
+			}
+		}
 	}
 
 	return nil
