@@ -258,6 +258,8 @@ func changeRegistration(client *http.Client, baseURL, token string, contestID in
 		return fmt.Errorf("reading response: %w", err)
 	}
 
+	log.Printf("Response %s: %s", resp.Status, strings.TrimSpace(string(body)))
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("unexpected status %s: %s", resp.Status, string(body))
 	}
@@ -283,16 +285,6 @@ func changeRegistration(client *http.Client, baseURL, token string, contestID in
 			return fmt.Errorf("server error: %s (code %d, symbol %s, log %s)", message, reply.Error.Num, reply.Error.Symbol, reply.Error.LogID)
 		}
 		return fmt.Errorf("registration change was not acknowledged: %s", message)
-	}
-
-	if len(reply.Result) > 0 {
-		var acknowledged bool
-		if err := json.Unmarshal(reply.Result, &acknowledged); err == nil {
-			if !acknowledged {
-				message := serverErrorMessage(body, reply)
-				return fmt.Errorf("registration change was not acknowledged: %s", message)
-			}
-		}
 	}
 
 	return nil
