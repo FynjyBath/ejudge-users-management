@@ -147,7 +147,12 @@ func parseAction(raw string) (actionType, error) {
 }
 
 func parseUsers(raw string) ([]userSpec, error) {
-	items := splitList(raw)
+	var items []string
+	if strings.ContainsAny(raw, "\r\n") {
+		items = splitListByDelimiters(raw, '\r', '\n')
+	} else {
+		items = splitList(raw)
+	}
 	if len(items) == 0 {
 		return nil, errors.New("user list is empty")
 	}
@@ -178,7 +183,12 @@ func parseUsers(raw string) ([]userSpec, error) {
 }
 
 func parseContestIDs(raw string) ([]int, error) {
-	items := splitList(raw)
+	var items []string
+	if strings.ContainsRune(raw, '\t') {
+		items = splitListByDelimiters(raw, '\t')
+	} else {
+		items = splitList(raw)
+	}
 	if len(items) == 0 {
 		return nil, errors.New("contest list is empty")
 	}
@@ -195,8 +205,17 @@ func parseContestIDs(raw string) ([]int, error) {
 }
 
 func splitList(raw string) []string {
+	return splitListByDelimiters(raw, ';', ',')
+}
+
+func splitListByDelimiters(raw string, delimiters ...rune) []string {
 	parts := strings.FieldsFunc(raw, func(r rune) bool {
-		return r == ';' || r == ','
+		for _, delimiter := range delimiters {
+			if r == delimiter {
+				return true
+			}
+		}
+		return false
 	})
 	out := make([]string, 0, len(parts))
 	for _, part := range parts {
