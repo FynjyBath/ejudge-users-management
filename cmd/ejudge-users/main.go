@@ -184,8 +184,8 @@ func parseUsers(raw string) ([]userSpec, error) {
 
 func parseContestIDs(raw string) ([]int, error) {
 	var items []string
-	if strings.ContainsRune(raw, '\t') {
-		items = splitListByDelimiters(raw, '\t')
+	if !strings.ContainsRune(raw, ';') {
+		items = splitListByDelimiters(raw, ' ')
 	} else {
 		items = splitList(raw)
 	}
@@ -205,7 +205,7 @@ func parseContestIDs(raw string) ([]int, error) {
 }
 
 func splitList(raw string) []string {
-	return splitListByDelimiters(raw, ';', ',')
+	return splitListByDelimiters(raw, ';')
 }
 
 func splitListByDelimiters(raw string, delimiters ...rune) []string {
