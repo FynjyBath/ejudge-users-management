@@ -76,8 +76,8 @@ func TestChangeRegistrationIncludesResultMessageWhenErrorMissing(t *testing.T) {
 	}
 }
 
-func TestParseUsersSplitsByNewline(t *testing.T) {
-	raw := "123:Alice\r\nuser2:User Two\n"
+func TestParseUsersNormalizesSemicolons(t *testing.T) {
+	raw := "123:Alice; user2:User Two ;user3:User Three; \n"
 
 	users, err := parseUsers(raw)
 	if err != nil {
@@ -87,6 +87,7 @@ func TestParseUsersSplitsByNewline(t *testing.T) {
 	want := []userSpec{
 		{ID: intPtr(123), Login: "123", Name: "Alice"},
 		{Login: "user2", Name: "User Two"},
+		{Login: "user3", Name: "User Three"},
 	}
 
 	if !reflect.DeepEqual(users, want) {
