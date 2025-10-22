@@ -12,11 +12,19 @@ go build -o ejudge-users ./cmd/ejudge-users
 
 ```bash
 ./ejudge-users \
+  -config config.json \
   -users "login1:Иван Иванов;login2:Пётр Петров" \
   -contests "101;102;103" \
   -action register \
-  -base-url "https://ejudge.example.org" \
-  -token "Bearer <API_TOKEN>"
+  -base-url "https://ejudge.example.org"
+```
+
+Файл `config.json` хранит чувствительные данные, такие как токен авторизации. Это позволяет избежать передачи токена напрямую в командной строке.
+
+```json
+{
+  "token": "Bearer <API_TOKEN>"
+}
 ```
 
 Аргументы:
@@ -25,7 +33,8 @@ go build -o ejudge-users ./cmd/ejudge-users
 * `-contests` — список идентификаторов контестов через `;` или `,`.
 * `-action` — `register` (значение по умолчанию) или `unregister`.
 * `-base-url` — базовый URL установки Ejudge. По умолчанию `http://localhost`.
-* `-token` — значение заголовка `Authorization`. Можно не задавать флаг, если переменная окружения `EJUDGE_API_TOKEN` уже содержит нужное значение. Обычно Ejudge ожидает строку вида `Bearer <токен>`.
+* `-token` — значение заголовка `Authorization`. Обычно Ejudge ожидает строку вида `Bearer <токен>`. Значение из флага имеет приоритет над записью в конфигурационном файле.
+* `-config` — путь к JSON-файлу с настройками (в том числе `token`).
 * `-timeout` — таймаут каждого HTTP-запроса (Go duration, например `30s`).
 * `-insecure` — отключить проверку TLS-сертификата (используйте только для отладки!).
 

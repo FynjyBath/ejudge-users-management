@@ -46,13 +46,18 @@ type replyError struct {
 	LogID   string `json:"log_id"`
 }
 
+type config struct {
+	Token string `json:"token"`
+}
+
 func main() {
 	var (
 		usersArg    = flag.String("users", "", "List of users in the format id:name;login2:name2")
 		contestsArg = flag.String("contests", "", "Semicolon separated list of contest IDs")
 		actionArg   = flag.String("action", string(actionRegister), "Action to perform: register or unregister")
 		baseURLArg  = flag.String("base-url", "http://localhost", "Base URL of the ejudge installation")
-		tokenArg    = flag.String("token", "", "Value for the Authorization header; falls back to EJUDGE_API_TOKEN env var")
+		tokenArg    = flag.String("token", "", "Value for the Authorization header; overrides the value from the config file")
+		configArg   = flag.String("config", "", "Path to JSON configuration file with secrets (e.g. token)")
 		timeoutArg  = flag.Duration("timeout", 15*time.Second, "Timeout for each HTTP request")
 		insecureArg = flag.Bool("insecure", false, "Skip TLS certificate verification")
 	)
@@ -80,12 +85,17 @@ func main() {
 		log.Fatalf("failed to parse contests: %v", err)
 	}
 
+	cfg, err := loadConfig(strings.TrimSpace(*configArg))
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
+
 	token := strings.TrimSpace(*tokenArg)
 	if token == "" {
-		token = strings.TrimSpace(os.Getenv("EJUDGE_API_TOKEN"))
+		token = strings.TrimSpace(cfg.Token)
 	}
 	if token == "" {
-		log.Fatal("no API token provided via -token flag or EJUDGE_API_TOKEN environment variable")
+		log.Fatal("no API token provided: specify it via -token flag or in the config file")
 	}
 
 	baseURL := strings.TrimSuffix(*baseURLArg, "/")
@@ -283,4 +293,36 @@ func actionVerb(action actionType) string {
 	default:
 		return string(action)
 	}
+}
+
+func loadConfig(path string) (config, error) {
+	if path == "" {
+		return config{}, nil
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return config{}, fmt.Errorf("opening config file %q: %w", path, err)
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	decoder.DisallowUnknownFields()
+
+	var cfg config
+	if err := decoder.Decode(&cfg); err != nil {
+		if errors.Is(err, io.EOF) {
+			return config{}, errors.New("config file is empty")
+		}
+		return config{}, fmt.Errorf("decoding config %q: %w", path, err)
+	}
+
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return config{}, fmt.Errorf("config file %q contains multiple JSON values", path)
+		}
+		return config{}, fmt.Errorf("decoding config %q: %w", path, err)
+	}
+
+	return cfg, nil
 }
