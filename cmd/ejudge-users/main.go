@@ -147,12 +147,14 @@ func parseAction(raw string) (actionType, error) {
 }
 
 func parseUsers(raw string) ([]userSpec, error) {
-	var items []string
-	if strings.ContainsAny(raw, "\r\n") {
-		items = splitListByDelimiters(raw, '\r', '\n')
-	} else {
-		items = splitList(raw)
+	normalized := strings.TrimSpace(raw)
+	if strings.HasSuffix(normalized, ";") {
+		normalized = normalized[:len(normalized)-1]
 	}
+	normalized = strings.ReplaceAll(normalized, "; ", ";")
+	normalized = strings.ReplaceAll(normalized, " ;", ";")
+
+	items := splitList(normalized)
 	if len(items) == 0 {
 		return nil, errors.New("user list is empty")
 	}
