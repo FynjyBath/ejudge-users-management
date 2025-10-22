@@ -91,9 +91,9 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	token := strings.TrimSpace(*tokenArg)
+	token := normalizeAuthorizationHeaderValue(*tokenArg)
 	if token == "" {
-		token = strings.TrimSpace(cfg.Token)
+		token = normalizeAuthorizationHeaderValue(cfg.Token)
 	}
 	if token == "" {
 		log.Fatal("no API token provided: specify it via -token flag or in the config file")
@@ -353,4 +353,33 @@ func loadConfig(path string) (config, error) {
 	}
 
 	return cfg, nil
+}
+
+func normalizeAuthorizationHeaderValue(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+
+	lower := strings.ToLower(trimmed)
+	knownSchemes := []string{"bearer ", "basic ", "digest ", "token ", "oauth "}
+	for _, scheme := range knownSchemes {
+		if strings.HasPrefix(lower, scheme) {
+			return trimmed
+		}
+	}
+
+	if strings.ContainsAny(trimmed, " \t\r\n") {
+		return trimmed
+	}
+
+	if len(trimmed) >= len("bearer") && strings.EqualFold(trimmed[:len("bearer")], "bearer") {
+		rest := strings.TrimSpace(trimmed[len("bearer"):])
+		if rest == "" {
+			return trimmed
+		}
+		return "Bearer " + rest
+	}
+
+	return "Bearer " + trimmed
 }
