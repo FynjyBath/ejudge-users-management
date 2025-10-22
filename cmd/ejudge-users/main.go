@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -240,6 +241,7 @@ func changeRegistration(client *http.Client, baseURL, token string, contestID in
 
 	req.Header.Set("Authorization", token)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -254,6 +256,16 @@ func changeRegistration(client *http.Client, baseURL, token string, contestID in
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("unexpected status %s: %s", resp.Status, string(body))
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "" && !isJSONContentType(contentType) {
+		const maxPreview = 200
+		preview := string(body)
+		if len(preview) > maxPreview {
+			preview = preview[:maxPreview] + "..."
+		}
+		return fmt.Errorf("unexpected response content type %q (status %s): %s", contentType, resp.Status, preview)
 	}
 
 	var reply changeRegistrationReply
@@ -292,6 +304,20 @@ func actionVerb(action actionType) string {
 		return "Unregistered"
 	default:
 		return string(action)
+	}
+}
+
+func isJSONContentType(contentType string) bool {
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+
+	switch mediaType {
+	case "application/json", "text/json", "application/problem+json":
+		return true
+	default:
+		return false
 	}
 }
 
